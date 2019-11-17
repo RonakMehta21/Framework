@@ -1,0 +1,240 @@
+1. Download Apache ServiceMix from http://servicemix.apache.org/downloads.html
+Depending on your operation system, you should download either the tar.gz or the zip file: 
+• tar.gz for Linux/Unix/MacOS X
+• zip for Windows
+
+2. Navigate to the directory where you extracted ServiceMix and run servicemix file. 
+After starting the container, you will have access to the console from which you can manage the container.
+
+3. The command to get a list of all bundles currently installed and running on ServiceMix instance is: "bundle:list"
+
+4. "bundle:list | grep camel" command shows Camel related bundles.
+
+5. “log:display” command to look messages in the log file.
+
+6. Change the log level at runtime
+karaf@root> log:set DEBUG
+karaf@root> log:display | grep DEBUG
+
+7. Revert the log level to its original INFO value again with “log:set INFO” command.
+
+8. Blueprint XML file to define the new route
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint
+    xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+<camelContext xmlns="http://camel.apache.org/schema/blueprint"> <route>
+<from uri="file:camel/input"/>
+<log message="Moving ${file:name} to the output directory"/> <to uri="file:camel/output"/>
+      </route>
+    </camelContext>
+</blueprint>
+
+9. "log:display" to display the log output for every moved file.
+
+10. "bundle:list" command to display the moved bundle exists or not.
+
+11. Stop the route
+karaf@root> bundle:stop 200
+Now any file moved from camel/input will not be transferred to camel/output directory.
+
+12. You can again start the route with the following command
+karaf@root> bundle:start 200
+
+13. Blueprint XML file to a Camel route that moves files from activemq/input to activemq/output and sends a message to ActiveMQ queue called events.
+The below file is stored in deploy directory.
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint
+    xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+<camelContext xmlns="http://camel.apache.org/schema/blueprint"> <route>
+<from uri="file:activemq/input"/> <to uri="file:activemq/output"/>
+        <setBody>
+          <simple>
+            FileMovedEvent(file: ${file:name}, timestamp: ${date:now:hh:MM:ss.SSS})
+</simple>
+</setBody>
+<to uri="activemq://events" />
+      </route>
+    </camelContext>
+</blueprint>
+
+
+14. In order to receive the messages sent, another Blueprint xml file is created.
+<?xml version="1.0" encoding="UTF-8"?>
+<blueprint
+    xmlns="http://www.osgi.org/xmlns/blueprint/v1.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+http://www.osgi.org/xmlns/blueprint/v1.0.0 http://www.osgi.org/xmlns/blueprint/v1.0.0/blueprint.xsd">
+<camelContext xmlns="http://camel.apache.org/schema/blueprint"> <route>
+<from uri="activemq://events"/>
+<to uri="log:events"/> </route>
+    </camelContext>
+</blueprint>
+
+
+
+
+15. Simple JMS Application with Multiple, Concurrent, Consumers and Producers
+i)	Start ActiveMQ on the terminal. 
+ii)	Run the App.java program by running the app on “tcp://localhost:61616”
+iii)	Messages are enqueued and dequeued. The number of such messages can be seen in Queues.
+
+In macosx go to <your installed ActiveMQ directory>/bin/macosx/ directory and run:
+./activemq start
+
+The App.java program:
+---------------------------------------------------------------
+import org.apache.activemq.ActiveMQConnectionFactory;
+
+import javax.jms.Connection;
+import javax.jms.DeliveryMode;
+import javax.jms.Destination;
+import javax.jms.ExceptionListener;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
+/**
+ * Hello world!
+ */
+public class App {
+
+    public static void main(String[] args) throws Exception {
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        Thread.sleep(1000);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        Thread.sleep(1000);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldProducer(), false);
+        Thread.sleep(1000);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldConsumer(), false);
+        thread(new HelloWorldProducer(), false);
+    }
+
+    public static void thread(Runnable runnable, boolean daemon) {
+        Thread brokerThread = new Thread(runnable);
+        brokerThread.setDaemon(daemon);
+        brokerThread.start();
+    }
+
+    public static class HelloWorldProducer implements Runnable {
+        public void run() {
+            try {
+                // Create a ConnectionFactory
+                ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:61616");
+
+                // Create a Connection
+                Connection connection = connectionFactory.createConnection();
+                connection.start();
+
+                // Create a Session
+                Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+                // Create the destination (Topic or Queue)
+                Destination destination = session.createQueue("TEST.FOO");
+
+                // Create a MessageProducer from the Session to the Topic or Queue
+                MessageProducer producer = session.createProducer(destination);
+                producer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+
+                // Create a messages
+                String text = "Hello world! From: " + Thread.currentThread().getName() + " : " + this.hashCode();
+                TextMessage message = session.createTextMessage(text);
+
+                // Tell the producer to send the message
+                System.out.println("Sent message: "+ message.hashCode() + " : " + Thread.currentThread().getName());
+                producer.send(message);
+
+                // Clean up
+                session.close();
+                connection.close();
+            }
+            catch (Exception e) {
+                System.out.println("Caught: " + e);
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static class HelloWorldConsumer implements Runnable, ExceptionListener {
+        public void run() {
+            try {
+
+                // Create a ConnectionFactory
+                ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:61616");
+
+                // Create a Connection
+                Connection connection = connectionFactory.createConnection();
+                connection.start();
+
+                connection.setExceptionListener(this);
+
+                // Create a Session
+                Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+
+                // Create the destination (Topic or Queue)
+                Destination destination = session.createQueue("TEST.FOO");
+
+                // Create a MessageConsumer from the Session to the Topic or Queue
+                MessageConsumer consumer = session.createConsumer(destination);
+
+                // Wait for a message
+                Message message = consumer.receive(1000);
+
+                if (message instanceof TextMessage) {
+                    TextMessage textMessage = (TextMessage) message;
+                    String text = textMessage.getText();
+                    System.out.println("Received: " + text);
+                } else {
+                    System.out.println("Received: " + message);
+                }
+
+                consumer.close();
+                session.close();
+                connection.close();
+            } catch (Exception e) {
+                System.out.println("Caught: " + e);
+                e.printStackTrace();
+            }
+        }
+
+        public synchronized void onException(JMSException ex) {
+            System.out.println("JMS Exception occured.  Shutting down client.");
+        }
+    }
+}
+---------------------------------------------------------------------------------------------------
+
+Finally, the activemq queues can be accessed from localhost:8161.
+
+
+
+
+
